@@ -1,0 +1,50 @@
+name: IPO Kakao Alert
+
+on:
+  schedule:
+    - cron: "30 22 * * 0-4"
+  workflow_dispatch:
+    inputs:
+      alert_date:
+        description: "Date override (YYYY-MM-DD)"
+        required: false
+      dry_run:
+        description: "Preview without sending"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ipo-kakao-alert
+
+jobs:
+  alert:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+      KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
+      KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
+      KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
+      ALERT_DATE: ${{ inputs.alert_date }}
+      DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Korean holiday calendar
+        run: pip install holidays==0.80
+      - name: Check schedule and send Kakao message
+        run: python ipo_alert.py
+      - name: Save duplicate prevention record
+        if: ${{ success() && github.event_name == 'schedule' }}
+        run: |
+          if [ -f state/sent.json ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add state/sent.json
+            git diff --cached --quiet || git commit -m "Record IPO alert delivery"
+            git push
+          fi
