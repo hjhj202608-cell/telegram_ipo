@@ -1,4 +1,4 @@
-import html,json,os,re,urllib.parse,urllib.request
+import html,json,os,re,ssl,urllib.parse,urllib.request
 from concurrent.futures import ThreadPoolExecutor,as_completed
 from datetime import date,datetime,timedelta
 from pathlib import Path
@@ -11,11 +11,13 @@ LIST_URL="https://www.38.co.kr/html/fund/index.htm?o=k"
 IPO_KOREA="https://ipokorea.kr/"
 STATE=Path("state/sent.json")
 UA={"User-Agent":"Mozilla/5.0 (compatible; IPO-Alert/2.0)"}
+SSL_CONTEXT=ssl.create_default_context()
+SSL_CONTEXT.set_ciphers("DEFAULT:@SECLEVEL=1")
 
 def request(url,data=None,headers=None):
  body=urllib.parse.urlencode(data).encode() if data else None
  req=urllib.request.Request(url,data=body,headers=headers or UA)
- with urllib.request.urlopen(req,timeout=35) as r:return r.read()
+ with urllib.request.urlopen(req,timeout=35,context=SSL_CONTEXT) as r:return r.read()
 
 def decode(raw):
  for enc in ("euc-kr","cp949","utf-8"):
