@@ -12,6 +12,10 @@ on:
         description: "Preview without sending"
         type: boolean
         default: true
+      force_send:
+        description: "Allow a manual resend for testing"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -29,6 +33,7 @@ jobs:
       KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
       ALERT_DATE: ${{ inputs.alert_date }}
       DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+      FORCE_SEND: ${{ inputs.force_send && '1' || '0' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
