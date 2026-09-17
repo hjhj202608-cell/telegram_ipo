@@ -1,4 +1,4 @@
-name: IPO Kakao Alert
+name: IPO Telegram Alert
 
 on:
   schedule:
@@ -21,16 +21,15 @@ permissions:
   contents: write
 
 concurrency:
-  group: ipo-kakao-alert
+  group: ipo-telegram-alert
 
 jobs:
   alert:
     runs-on: ubuntu-latest
     env:
       TZ: Asia/Seoul
-      KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
-      KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
-      KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       ALERT_DATE: ${{ inputs.alert_date }}
       DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
       FORCE_SEND: ${{ inputs.force_send && '1' || '0' }}
@@ -41,7 +40,7 @@ jobs:
           python-version: "3.12"
       - name: Install Korean holiday calendar
         run: pip install holidays==0.80
-      - name: Check schedule and send Kakao message
+      - name: Check schedule and send Telegram message
         run: python ipo_alert.py
       - name: Save duplicate prevention record
         if: ${{ success() && github.event_name == 'schedule' }}
