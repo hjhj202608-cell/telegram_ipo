@@ -156,22 +156,17 @@ def tasks(records,today):
   if listing==today:out.append(f"금일 {name} 상장일 입니다. 매도 공문을 작성하세요.")
  return out
 
-def chunks(today,items):
- header=f"[공모주 업무 알림 | {today.month}월 {today.day}일]"
- result=[];current=header
- for item in items:
-  line="\n"+item
-  if len(current+line)>200:
-   result.append(current);current=header+line
-  else:current+=line
- result.append(current)
- return result
+def message(today,items):
+ title=f"📌 공모주 업무 알림 | {today.month}월 {today.day}일"
+ body="\n\n".join(f"• {item}" for item in items)
+ return title,body
 
-def send(msg):
+def send(title,body):
  keys=["KAKAO_REST_API_KEY","KAKAO_CLIENT_SECRET","KAKAO_REFRESH_TOKEN"]
  if any(not os.getenv(k) for k in keys):raise RuntimeError("GitHub Secrets가 필요합니다.")
  token=json.loads(request("https://kauth.kakao.com/oauth/token",{"grant_type":"refresh_token","client_id":os.environ[keys[0]],"client_secret":os.environ[keys[1]],"refresh_token":os.environ[keys[2]]},{}))
- template={"object_type":"text","text":msg,"link":{"web_url":"https://www.38.co.kr/html/ipo/ipo_schedule.php","mobile_web_url":"https://www.38.co.kr/html/ipo/ipo_schedule.php"},"button_title":"38 일정 확인"}
+ link={"web_url":"https://www.38.co.kr/html/ipo/ipo_schedule.php","mobile_web_url":"https://www.38.co.kr/html/ipo/ipo_schedule.php"}
+ template={"object_type":"feed","content":{"title":title,"description":body,"link":link},"button_title":"38 일정 확인"}
  result=json.loads(request("https://kapi.kakao.com/v2/api/talk/memo/default/send",{"template_object":json.dumps(template,ensure_ascii=False)},{"Authorization":"Bearer "+token["access_token"]}))
  if result.get("result_code")!=0:raise RuntimeError(str(result))
  if token.get("refresh_token"):print("::warning::KAKAO_REFRESH_TOKEN 갱신 필요")
@@ -179,12 +174,12 @@ def send(msg):
 def main():
  today=date.fromisoformat(os.getenv("ALERT_DATE") or date.today().isoformat());records=all_records();items=tasks(records,today)
  if not items:print("오늘 알림 없음");return
- messages=chunks(today,items)
- print("\n--- 다음 카톡 ---\n".join(messages))
+ title,body=message(today,items)
+ print(title+"\n"+body)
  if os.getenv("DRY_RUN")=="1":return
  state=json.loads(STATE.read_text()) if STATE.exists() else {"sent_dates":[]}
  if today.isoformat() in state.get("sent_dates",[]) and os.getenv("FORCE_SEND")!="1":print("이미 발송함");return
- for msg in messages:send(msg)
- STATE.parent.mkdir(exist_ok=True);state["sent_dates"]=(state.get("sent_dates",[])+[today.isoformat()])[-90:];STATE.write_text(json.dumps(state,ensure_ascii=False,indent=2));print(f"발송 성공: {len(messages)}건")
+ send(title,body)
+ STATE.parent.mkdir(exist_ok=True);state["sent_dates"]=(state.get("sent_dates",[])+[today.isoformat()])[-90:];STATE.write_text(json.dumps(state,ensure_ascii=False,indent=2));print("발송 성공: 1건")
 
 if __name__=="__main__":main()
