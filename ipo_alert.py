@@ -153,6 +153,7 @@ def tasks(records,today):
   if offer==today:out.append(f"{name} 공모주 청약일 1일차입니다.")
   if pay and minus_business_days(pay,2,off)==today:
    out.append(f"{name} 납입일 2영업일 전입니다. 공문을 작성하세요. {name} 납입일 {mmdd(pay)}")
+  if pay==today:out.append(f"{name} 납입일 입니다. 수신팀에게 메신저를 보내세요.")
   if listing==today:out.append(f"금일 {name} 상장일 입니다. 매도 공문을 작성하세요.")
  return out
 
