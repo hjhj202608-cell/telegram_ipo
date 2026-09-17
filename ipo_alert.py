@@ -149,35 +149,27 @@ def tasks(records,today):
  for x in sorted(records,key=lambda r:r["name"]):
   name=re.sub(r"\(구\..*?\)","",x["name"]).strip();ds=x.get("demand_start");de=x.get("demand_end");offer=x.get("offer_start");pay=x.get("payment");listing=x.get("listing")
   if ds and de and ds<=today<=de and business_day(today,off):
-   n=business_index(ds,today,off);out.append((f"수요예측 {n}일차({mmdd(ds)}~{mmdd(de)})",name))
-  if de==today:out.append(("수요예측 마감",name))
-  if offer==today:out.append(("청약 1일차",name))
-  if pay and minus_business_days(pay,2,off)==today:out.append((f"납입 D-2({mmdd(pay)})·공문작성",name))
-  if pay==today:out.append(("납입일·수신팀 메신저",name))
-  if listing==today:out.append(("상장일·매도공문",name))
+   n=business_index(ds,today,off);out.append(f"{name} 수요예측 {n}일차입니다. 수요예측시작:{mmdd(ds)}, 수요예측마감 {mmdd(de)}")
+  if de==today:out.append(f"{name} 수요예측 마감일 입니다.")
+  if offer==today:out.append(f"{name} 공모주 청약일 1일차입니다.")
+  if pay and minus_business_days(pay,2,off)==today:out.append(f"{name} 납입일 2영업일 전입니다. 공문을 작성하세요. {name} 납입일 {mmdd(pay)}")
+  if pay==today:out.append(f"{name} 납입일 입니다. 수신팀에게 메신저를 보내세요.")
+  if listing==today:out.append(f"금일 {name} 상장일 입니다. 매도 공문을 작성하세요.")
  return out
 
+
 def message(today,items):
- groups={}
- for label,name in items:groups.setdefault(label,[]).append(name)
- lines=[f"📌 공모주 업무 | {today.month}/{today.day}"]
- for label,names in groups.items():lines.append(f"[{label}] {'·'.join(dict.fromkeys(names))}")
- msg="\n".join(lines)
- if len(msg)>200:
-  lines=[lines[0]]+[f"[{label}] {'·'.join(dict.fromkeys(n[:8] for n in names))}" for label,names in groups.items()]
-  msg="\n".join(lines)
- if len(msg)>200:raise RuntimeError(f"단일 메시지 200자 초과: {len(msg)}자")
+ msg=f"📌 공모주 업무 알림 | {today.month}월 {today.day}일\n\n"+"\n\n".join(f"• {item}" for item in items)
+ if len(msg)>4096:raise RuntimeError(f"텔레그램 단일 메시지 4096자 초과: {len(msg)}자")
  return msg
 
+
 def send(msg):
- keys=["KAKAO_REST_API_KEY","KAKAO_CLIENT_SECRET","KAKAO_REFRESH_TOKEN"]
- if any(not os.getenv(k) for k in keys):raise RuntimeError("GitHub Secrets가 필요합니다.")
- token=json.loads(request("https://kauth.kakao.com/oauth/token",{"grant_type":"refresh_token","client_id":os.environ[keys[0]],"client_secret":os.environ[keys[1]],"refresh_token":os.environ[keys[2]]},{}))
- link={"web_url":"https://www.38.co.kr/html/ipo/ipo_schedule.php","mobile_web_url":"https://www.38.co.kr/html/ipo/ipo_schedule.php"}
- template={"object_type":"text","text":msg,"link":link,"button_title":"38 일정 확인"}
- result=json.loads(request("https://kapi.kakao.com/v2/api/talk/memo/default/send",{"template_object":json.dumps(template,ensure_ascii=False)},{"Authorization":"Bearer "+token["access_token"]}))
- if result.get("result_code")!=0:raise RuntimeError(str(result))
- if token.get("refresh_token"):print("::warning::KAKAO_REFRESH_TOKEN 갱신 필요")
+ token=os.getenv("TELEGRAM_BOT_TOKEN");chat_id=os.getenv("TELEGRAM_CHAT_ID")
+ if not token or not chat_id:raise RuntimeError("Telegram GitHub Secrets가 필요합니다.")
+ result=json.loads(request(f"https://api.telegram.org/bot{token}/sendMessage",{"chat_id":chat_id,"text":msg,"disable_web_page_preview":"true"},{}))
+ if not result.get("ok"):raise RuntimeError(str(result))
+
 
 def main():
  today=date.fromisoformat(os.getenv("ALERT_DATE") or date.today().isoformat());records=all_records();items=tasks(records,today)
@@ -187,6 +179,7 @@ def main():
  state=json.loads(STATE.read_text()) if STATE.exists() else {"sent_dates":[]}
  if today.isoformat() in state.get("sent_dates",[]) and os.getenv("FORCE_SEND")!="1":print("이미 발송함");return
  send(msg)
- STATE.parent.mkdir(exist_ok=True);state["sent_dates"]=(state.get("sent_dates",[])+[today.isoformat()])[-90:];STATE.write_text(json.dumps(state,ensure_ascii=False,indent=2));print("발송 성공: 1건")
+ STATE.parent.mkdir(exist_ok=True);state["sent_dates"]=(state.get("sent_dates",[])+[today.isoformat()])[-90:];STATE.write_text(json.dumps(state,ensure_ascii=False,indent=2));print("텔레그램 발송 성공: 1건")
+
 
 if __name__=="__main__":main()
