@@ -180,6 +180,8 @@ def send(msg):
 
 
 def main():
+ if os.getenv("GITHUB_EVENT_NAME")=="schedule" and not os.getenv("ALERT_DATE") and datetime.now().hour<7:
+  print("07:00 KST 이전 백업 스케줄 실행이므로 발송하지 않습니다.");return
  today=date.fromisoformat(os.getenv("ALERT_DATE") or date.today().isoformat());records=all_records();items=tasks(records,today)
  if not items:print("오늘 알림 없음");return
  msg=message(today,items);print(msg);print(f"메시지 길이: {len(msg)}자")

@@ -2,11 +2,13 @@ name: IPO Telegram Alert
 
 on:
   schedule:
-    # GitHub Actions scheduled runs can be delayed. Trigger several times in the
-    # 07:00 KST window and rely on state/sent.json to prevent duplicate sends.
-    - cron: "10 22 * * 0-4"
-    - cron: "30 22 * * 0-4"
-    - cron: "50 22 * * 0-4"
+    # Backup only. GitHub Actions scheduled runs can be delayed by hours.
+    # The primary 07:00 KST trigger should come from an external scheduler via
+    # repository_dispatch; these runs remain as fallback attempts. Early runs
+    # before 07:00 KST are ignored by ipo_alert.py.
+    - cron: "10,30,50 19-22 * * 0-4"
+  repository_dispatch:
+    types: [ipo-alert]
   workflow_dispatch:
     inputs:
       alert_date:
@@ -34,9 +36,9 @@ jobs:
       TZ: Asia/Seoul
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      ALERT_DATE: ${{ inputs.alert_date }}
-      DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
-      FORCE_SEND: ${{ inputs.force_send && '1' || '0' }}
+      ALERT_DATE: ${{ github.event.inputs.alert_date || github.event.client_payload.alert_date }}
+      DRY_RUN: ${{ github.event.inputs.dry_run == 'true' && '1' || '0' }}
+      FORCE_SEND: ${{ (github.event.inputs.force_send == 'true' || github.event.client_payload.force_send == 'true') && '1' || '0' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -47,7 +49,7 @@ jobs:
       - name: Check schedule and send Telegram message
         run: python ipo_alert.py
       - name: Save duplicate prevention record
-        if: ${{ success() && github.event_name == 'schedule' }}
+        if: ${{ success() && hashFiles('state/sent.json') != '' }}
         run: |
           if [ -f state/sent.json ]; then
             git config user.name "github-actions[bot]"
