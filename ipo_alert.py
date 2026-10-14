@@ -149,6 +149,12 @@ def plus_business_days(target,count,off):
   if business_day(cur,off):count-=1
  return cur
 
+def next_business_day(target,off):
+ cur=target
+ while not business_day(cur,off):
+  cur+=timedelta(days=1)
+ return cur
+
 def mmdd(d):return d.strftime("%m.%d")
 
 def tasks(records,today):
@@ -161,7 +167,8 @@ def tasks(records,today):
   if offer==today:out.append(f"{name} 공모주 청약일 1일차입니다.")
   if pay and minus_business_days(pay,2,off)==today:out.append(f"{name} 납입일 2영업일 전입니다. 공문을 작성하세요. {name} 납입일 {mmdd(pay)}")
   if pay==today:out.append(f"{name} 납입일 입니다. 수신팀에게 메신저를 보내세요.")
-  if listing==today:out.append(f"금일 {name} 상장일 입니다. 매도 공문을 작성하세요.")
+  if listing==today:out.append(f"{name} 상장일입니다. 매도공문을 작성하세요.")
+  if listing and next_business_day(listing+timedelta(days=15),off)==today:out.append(f"{name} 15일 확약분 매도일 입니다. 매도공문을 작성하세요.")
   if listing and plus_business_days(listing,2,off)==today:out.append(f"{name} 매도대금 입금일 입니다. 매도대금을 회수하세요.")
  return out
 
@@ -193,3 +200,7 @@ def main():
 
 
 if __name__=="__main__":main()
+
+
+
+
