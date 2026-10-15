@@ -1,0 +1,44 @@
+name: IPO Telegram Test Message
+
+on:
+  workflow_dispatch:
+    inputs:
+      alert_date:
+        description: "Test date (YYYY-MM-DD); sends TEST message without delivery record"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  test-message:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TZ: Asia/Seoul
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      TEST_DATE: ${{ inputs.alert_date }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install holidays==0.80
+      - name: Send labelled test without modifying delivery state
+        run: |
+          python - <<'PY'
+          import os
+          from datetime import date
+          import ipo_alert as app
+          before = app.STATE.read_bytes() if app.STATE.exists() else None
+          target = date.fromisoformat(os.environ["TEST_DATE"])
+          items = app.tasks(app.all_records(), target)
+          msg = "[테스트 · " + target.isoformat() + " 기준]\n정규 알림이 아닌 시험 발송입니다. 실제 일정은 변경될 수 있습니다.\n\n" + app.message(target, items or ["해당 날짜의 알림 대상 없음"])
+          if len(msg) > 4096:
+              raise RuntimeError("Test message exceeds Telegram limit")
+          app.send(msg)
+          assert (app.STATE.read_bytes() if app.STATE.exists() else None) == before, "Delivery state changed"
+          print("TEST Telegram API accepted; delivery state unchanged; date=" + target.isoformat())
+          PY
