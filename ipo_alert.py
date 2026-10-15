@@ -2,6 +2,7 @@ import html,json,os,re,ssl,urllib.parse,urllib.request
 from concurrent.futures import ThreadPoolExecutor,as_completed
 from datetime import date,datetime,timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 try:
  import holidays
 except ImportError:
@@ -187,9 +188,13 @@ def send(msg):
 
 
 def main():
- if os.getenv("GITHUB_EVENT_NAME")=="schedule" and not os.getenv("ALERT_DATE") and datetime.now().hour<7:
+ now_kst=datetime.now(ZoneInfo("Asia/Seoul"))
+ override=os.getenv("ALERT_DATE")
+ if override and date.fromisoformat(override)!=now_kst.date() and os.getenv("DRY_RUN")!="1":
+  raise RuntimeError("오늘 이외 날짜는 DRY_RUN=1로만 시험할 수 있습니다. 실제 발송 및 발송 기록 저장을 차단합니다.")
+ if os.getenv("GITHUB_EVENT_NAME")=="schedule" and not os.getenv("ALERT_DATE") and now_kst.hour<7:
   print("07:00 KST 이전 백업 스케줄 실행이므로 발송하지 않습니다.");return
- today=date.fromisoformat(os.getenv("ALERT_DATE") or date.today().isoformat());records=all_records();items=tasks(records,today)
+ today=date.fromisoformat(os.getenv("ALERT_DATE") or now_kst.date().isoformat());records=all_records();items=tasks(records,today)
  if not items:print("오늘 알림 없음");return
  msg=message(today,items);print(msg);print(f"메시지 길이: {len(msg)}자")
  if os.getenv("DRY_RUN")=="1":return
